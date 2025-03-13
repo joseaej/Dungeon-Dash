@@ -1,34 +1,45 @@
+using UnityEditor.Rendering;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
-    public float health = 3f; // Vida inicial del jugador
-
+    public float health = 3f; 
+    public float points =0 ;
+    public Animator animator;
+    void Start(){
+        animator = GetComponent<Animator>();
+    }
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        // Verificar si el objeto que colisiona tiene la etiqueta "Enemy"
+        if (collision.gameObject.CompareTag("Coin"))
+        {
+            points++;
+            Debug.Log("" + points);
+        }
+
         if (collision.gameObject.CompareTag("Enemy"))
         {
-            TakeDamage(1f); // El jugador recibe 1 de daño
+            TakeDamage(1f); 
         }
     }
 
     private void TakeDamage(float damageAmount)
     {
-        health -= damageAmount; // Reducir la vida del jugador
+        health -= damageAmount; 
 
-        // Verificar si la vida del jugador llegó a 0 o menos
+        
         if (health <= 0)
         {
-            Die(); // Llamar a la función de muerte
+            Die(); 
         }
 
-        Debug.Log("Player health: " + health); // Mostrar la vida actual en la consola
+        Debug.Log("Player health: " + health); 
     }
 
     private void Die()
     {
-        Debug.Log("Player has died!"); // Mensaje de muerte en la consola
-        Destroy(gameObject); // Destruir el objeto del jugador
+        SceneManager.LoadScene("Platform");
+        Destroy(gameObject); 
     }
 }

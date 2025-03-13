@@ -6,6 +6,6 @@ public class CamaraController : MonoBehaviour
 
     void Update()
     {
-        transform.position = new Vector3(player.position.x, player.position.y, -5f);
+        transform.position = new Vector3(player.position.x, player.position.y, -3f);
     }
 }

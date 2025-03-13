@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GroundDetector : MonoBehaviour
 {
@@ -8,6 +9,10 @@ public class GroundDetector : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D collision)
     {
+        if (collision.gameObject.layer == LayerMask.NameToLayer("DeadZone"))
+        {
+            Die();
+        }
         Debug.Log("Contacto con el suelo");
         _IsGrounded = true;
     }
@@ -17,6 +22,9 @@ public class GroundDetector : MonoBehaviour
         Debug.Log("Pérdida de contacto con el suelo");
         _IsGrounded = false;
     }
-
-
+    private void Die()
+    {
+        SceneManager.LoadScene("Platform");
+        Destroy(gameObject); 
+    }
 }

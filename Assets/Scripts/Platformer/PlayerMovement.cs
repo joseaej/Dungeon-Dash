@@ -9,8 +9,10 @@ public class PlayerMovement : MonoBehaviour
     private int saltosRestantes = 2; 
     public float rayCast = 0.1f;
 
+    Animator animator;
     [Header("Movimiento Personaje")]
-    [SerializeField] private float velocidad = 5f;
+    [SerializeField] private float velocidad = 1.5f;
+    [SerializeField] private float velocidadCorriendo = 2.5f;
 
     [Header("Salto Personaje")]
     [SerializeField] private float jumpForce = 5f;
@@ -21,45 +23,63 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rg = GetComponent<Rigidbody2D>();
-        
+        animator = GetComponent<Animator>();
         transform.localScale = new Vector2(Mathf.Abs(transform.localScale.x), transform.localScale.y);
     }
 
     void Update()
     {
-        
-        if (Input.GetButtonDown("Jump") && saltosRestantes > 0)
-        {
-            jumping = true;
-        }
+        CheckGrounded();
+        HandleJumpInput();
+        Movement();
+        HandleFall();
+    }
 
-        
+    void CheckGrounded()
+    {
         isGrounded = Physics2D.OverlapBox(suelo.position, caja, 0, ground);
 
-        
         if (isGrounded)
         {
             saltosRestantes = 2; 
+            animator.SetBool("isJumping", false);
+            animator.SetBool("isFalling", false);
         }
-
-        
-        Movement();
     }
 
-    void FixedUpdate()
+    void HandleJumpInput()
     {
-        
-        if (jumping)
+        if (Input.GetButtonDown("Jump") && saltosRestantes > 0)
         {
-            Jump();
-            jumping = false; 
+            jumping = true;
         }
     }
 
     void Movement()
     {
         float input = Input.GetAxis("Horizontal");
-        rg.linearVelocity = new Vector2(input * velocidad, rg.linearVelocity.y);
+
+        if (input != 0)
+        {
+            if (Input.GetKey(KeyCode.LeftShift))
+            {
+                animator.SetBool("isRunning", true);
+                animator.SetBool("isWalking", false);
+                rg.linearVelocity = new Vector2(input * velocidadCorriendo, rg.linearVelocity.y);
+            }
+            else
+            {
+                animator.SetBool("isRunning", false);
+                animator.SetBool("isWalking", true);
+                rg.linearVelocity = new Vector2(input * velocidad, rg.linearVelocity.y);
+            }
+        }
+        else
+        {
+            animator.SetBool("isRunning", false);
+            animator.SetBool("isWalking", false);
+        }
+
         ChangeOrientation(input);
     }
 
@@ -72,17 +92,37 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    void HandleFall()
+    {
+        if (!isGrounded && rg.linearVelocity.y < 0)
+        {
+            animator.SetBool("isFalling", true);
+            animator.SetBool("isJumping", false);
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (jumping)
+        {
+            Jump();
+            jumping = false;
+        }
+    }
+
     void Jump()
     {
-        
-        rg.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
-        saltosRestantes--; 
-        isGrounded = false; 
+        if (isGrounded)
+        {
+            rg.linearVelocity = new Vector2(rg.linearVelocity.x, 0);
+            rg.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+            saltosRestantes--;
+            animator.SetBool("isJumping", true);
+        }
     }
 
     void OnDrawGizmosSelected()
     {
-        
         Gizmos.color = Color.red;
         Gizmos.DrawWireCube(suelo.position, caja);
     }
