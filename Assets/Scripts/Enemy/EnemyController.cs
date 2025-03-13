@@ -87,6 +87,7 @@ public class EnemyController : MonoBehaviour
             state = EnemyState.Follow;
         }
     }
+    
 
     private void MoveToStartPosition()
     {
@@ -146,9 +147,10 @@ public class EnemyController : MonoBehaviour
         else
         {
             state = EnemyState.Hurting;
-            Invoke("ResetState", 0.5f); // Volver al estado de Follow después de recibir daño
+            Invoke("ResetState", 0.5f);
         }
     }
+    
 
     private void ResetState()
     {

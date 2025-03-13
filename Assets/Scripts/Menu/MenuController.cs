@@ -3,7 +3,11 @@ using UnityEngine.SceneManagement;
 public class MenuController : MonoBehaviour
 {
     public void Play(){
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex +1);
+        SceneManager.LoadScene("Platform");
+
+    }
+    public void Controls(){
+        SceneManager.LoadScene("Controls");
 
     }
     public void Quit()
