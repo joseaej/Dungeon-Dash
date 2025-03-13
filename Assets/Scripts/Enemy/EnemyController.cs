@@ -1,77 +1,183 @@
 using UnityEngine;
 
+public enum EnemyState
+{
+    Wait,
+    Back,
+    Follow,
+    Attacking,
+    Hurting,
+    Dead
+}
+
 public class EnemyController : MonoBehaviour
 {
-    [Header("Movement Settings")]
-    [SerializeField] private float moveSpeed = 2f; 
-    [SerializeField] private float raycastDistance = 0.5f; 
-    [SerializeField] private LayerMask groundLayer; 
+    public float detectionRadius = 2f;
+    public LayerMask playerLayer;
+    private Transform playerTransform;
+    public EnemyState state = EnemyState.Wait;
+    private bool isFacingRight = true;
 
-    [Header("Damage Settings")]
-    [SerializeField] private int damageAmount = 1; 
-    [SerializeField] private float knockbackForce = 5f; 
+    [Header("Enemy Options")]
+    public int enemyDamage = 1;
+    public float speed = 2f;
+    public float maxChaseDistance = 4f;
+    private Vector3 startPosition;
 
-    private bool movingRight = true; 
-    private Rigidbody2D rb;
+    [Header("Enemy Health")]
+    public int maxHealth = 3;
+    private int currentHealth;
 
-    private void Start()
+    [Header("Animations")]
+    private Animator animator;
+    private PlayerHealth playerHealth;
+
+    void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
+        startPosition = transform.position;
+        currentHealth = maxHealth;
+        playerHealth = FindAnyObjectByType<PlayerHealth>();
+        animator = GetComponent<Animator>();
     }
 
-    private void Update()
+    void Update()
     {
-        Move();
-        CheckForEdges();
+        if (state == EnemyState.Dead) return;
+
+        UpdateAnimator();
+        HandleState();
     }
 
-    private void Move()
+    private void UpdateAnimator()
     {
-        
-        float direction = movingRight ? 1 : -1;
-        rb.linearVelocity = new Vector2(direction * moveSpeed, rb.linearVelocity.y);
+        animator.SetBool("isWalking", state == EnemyState.Follow || state == EnemyState.Back);
+        animator.SetBool("isAttacking", state == EnemyState.Attacking);
+        animator.SetBool("isHurting", state == EnemyState.Hurting);
+        animator.SetBool("isDie", state == EnemyState.Dead);
     }
 
-    private void CheckForEdges()
+    private void HandleState()
     {
-        
-        Vector2 rayOrigin = movingRight ? 
-            new Vector2(transform.position.x + 0.5f, transform.position.y) : 
-            new Vector2(transform.position.x - 0.5f, transform.position.y);
-
-        RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.down, raycastDistance, groundLayer);
-
-        
-        if (!hit.collider)
+        switch (state)
         {
-            movingRight = !movingRight;
+            case EnemyState.Wait:
+                DetectPlayer();
+                break;
+            case EnemyState.Back:
+                MoveToStartPosition();
+                break;
+            case EnemyState.Follow:
+                ChasePlayer();
+                break;
+            case EnemyState.Attacking:
+                AttackPlayer();
+                break;
+            case EnemyState.Hurting:
+                // No se necesita lógica adicional aquí, ya que se maneja en TakeDamage
+                break;
         }
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void DetectPlayer()
     {
-        
-        if (collision.gameObject.CompareTag("Player"))
+        Collider2D playerCollider = Physics2D.OverlapCircle(transform.position, detectionRadius, playerLayer);
+        if (playerCollider)
         {
-            PlayerHealth playerHealth = collision.gameObject.GetComponent<PlayerHealth>();
-            if (playerHealth != null)
-            {
-                playerHealth.TakeDamage(damageAmount);
-
-                
-                Vector2 knockbackDirection = (collision.transform.position - transform.position).normalized;
-                collision.gameObject.GetComponent<Rigidbody2D>().AddForce(knockbackDirection * knockbackForce, ForceMode2D.Impulse);
-            }
+            playerTransform = playerCollider.transform;
+            state = EnemyState.Follow;
         }
     }
 
-    private void OnDrawGizmos()
+    private void MoveToStartPosition()
     {
-        
+        transform.position = Vector2.MoveTowards(transform.position, startPosition, speed * Time.deltaTime);
+        FlipDirection(startPosition);
+
+        if (Vector2.Distance(transform.position, startPosition) < 0.1f)
+        {
+            state = EnemyState.Wait;
+        }
+    }
+
+    private void ChasePlayer()
+    {
+        if (playerTransform == null)
+        {
+            state = EnemyState.Back;
+            return;
+        }
+
+        transform.position = Vector2.MoveTowards(transform.position, playerTransform.position, speed * Time.deltaTime);
+        FlipDirection(playerTransform.position);
+
+        if (Vector2.Distance(transform.position, startPosition) > maxChaseDistance ||
+            Vector2.Distance(transform.position, playerTransform.position) > maxChaseDistance)
+        {
+            state = EnemyState.Back;
+            playerTransform = null;
+        }
+        else if (Vector2.Distance(transform.position, playerTransform.position) <= detectionRadius)
+        {
+            state = EnemyState.Attacking;
+        }
+    }
+
+    private void AttackPlayer()
+    {
+        if (playerTransform == null || playerHealth == null)
+        {
+            state = EnemyState.Back;
+            return;
+        }
+
+        playerHealth.TakeDamage(enemyDamage);
+        state = EnemyState.Follow;
+    }
+
+    public void TakeDamage(int damageAmount)
+    {
+        if (state == EnemyState.Dead) return;
+
+        currentHealth -= damageAmount;
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+        else
+        {
+            state = EnemyState.Hurting;
+            Invoke("ResetState", 0.5f); // Volver al estado de Follow después de recibir daño
+        }
+    }
+
+    private void ResetState()
+    {
+        if (state == EnemyState.Hurting)
+        {
+            state = EnemyState.Follow;
+        }
+    }
+
+    private void Die()
+    {
+        state = EnemyState.Dead;
+        GetComponent<Collider2D>().enabled = false;
+        GetComponent<Rigidbody2D>().simulated = false;
+        Destroy(gameObject, 2f);
+    }
+
+    private void FlipDirection(Vector3 target)
+    {
+        if ((target.x > transform.position.x && !isFacingRight) || (target.x < transform.position.x && isFacingRight))
+        {
+            isFacingRight = !isFacingRight;
+            transform.eulerAngles = new Vector3(0, isFacingRight ? 0 : 180, 0);
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
         Gizmos.color = Color.red;
-        Vector2 rayOrigin = movingRight ? 
-            new Vector2(transform.position.x + 0.5f, transform.position.y) : 
-            new Vector2(transform.position.x - 0.5f, transform.position.y);
-        Gizmos.DrawLine(rayOrigin, rayOrigin + Vector2.down * raycastDistance);
+        Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }
 }
